@@ -32,6 +32,11 @@ The toolkit is ideal for:
 | recon-ng     | Framework for web recon         |
 | nikto        | Web vulnerability scanning      |
 
+## 📸 Screenshots
+
+### 🔧 ETHACKING Main Menu
+![Menu](screenshots/menu.png)
+
  ETHACKING/
 ├── ethacking.sh            # Main launcher script
 ├── install_deps.sh         # Optional dependency installer
