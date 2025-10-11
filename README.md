@@ -35,7 +35,7 @@ The toolkit is ideal for:
 ## 📸 Screenshots
 
 ### 🔧 ETHACKING Main Menu
-![Menu](screenshots/menu.png)
+![Menu](menu.png)
 
  ETHACKING/
 ├── ethacking.sh            # Main launcher script
