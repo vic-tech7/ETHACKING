@@ -47,6 +47,7 @@ header() {
   echo
 }
 
+
 # Menu
 print_menu() {
   header
@@ -72,7 +73,8 @@ print_menu() {
     "$leftw" "11)" "$rightw" "GOBUSTER" \
     "$leftw" "12)" "$rightw" "RECON_NG"
   printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
-    "$leftw" "13)" "$rightw" "EXIT"
+    "$leftw" "13)" "$rightw" "UPDATE" \
+    "$leftw" "14)" "$rightw" "EXIT"
 
   echo
 }
@@ -382,12 +384,97 @@ RECON_NG() {
   _wait
 }
 
+
+# UPDATE: update repo and tools, optional run installer, offer restart of launcher
+UPDATE_REPO_AND_TOOLS() {
+  echo -e "${CYAN}Starting update of ETHACKING and its tools...${RESET}"
+
+  # animated banner
+  if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
+    figlet -f small "UPDATING" | lolcat -a -d 2
+  elif command -v figlet >/dev/null 2>&1; then
+    figlet -f small "UPDATING"
+  else
+    echo -e "${CYAN}--- UPDATING ---${RESET}"
+  fi
+
+  # Ensure script dir exists
+  if [ ! -d "$SCRIPT_DIR" ]; then
+    echo -e "${RED}Script directory not found: $SCRIPT_DIR${RESET}"
+    _wait
+    return
+  fi
+
+  # Update main repo if it's a git repo
+  if [ -d "${SCRIPT_DIR}/.git" ]; then
+    echo -e "${YELLOW}Updating main repository in ${SCRIPT_DIR}${RESET}"
+    pushd "$SCRIPT_DIR" >/dev/null 2>&1 || true
+    git fetch origin --prune
+    # try fast-forward first
+    if git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
+      git pull --ff-only origin main || git pull origin main || true
+    else
+      # fallback to pulling changes
+      git pull origin main --allow-unrelated-histories || git pull origin main || true
+    fi
+    popd >/dev/null 2>&1 || true
+  else
+    echo -e "${YELLOW}No .git found in ${SCRIPT_DIR}. If you installed ETHACKING manually (not via git clone) you can re-clone the repo to update.${RESET}"
+  fi
+
+  # Update each git repo inside tools/
+  if [ -d "$TOOLS_DIR" ]; then
+    echo -e "${YELLOW}Updating tools in ${TOOLS_DIR}...${RESET}"
+    for d in "$TOOLS_DIR"/*; do
+      [ -d "$d" ] || continue
+      if [ -d "$d/.git" ]; then
+        echo -e "${CYAN}Updating $(basename "$d")...${RESET}"
+        pushd "$d" >/dev/null 2>&1 || continue
+        git fetch origin --prune
+        git pull --ff-only origin "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)" 2>/dev/null || git pull origin "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)" || true
+        popd >/dev/null 2>&1 || true
+      else
+        echo -e "${YELLOW}Skipping $(basename "$d") (no .git)${RESET}"
+      fi
+    done
+  fi
+
+  # Option: run install_deps.sh
+  if [ -f "${SCRIPT_DIR}/install_deps.sh" ]; then
+    read -r -p $'Run install_deps.sh to (re)install dependencies? (y/N): ' do_install
+    if [[ "$do_install" =~ ^[Yy]$ ]]; then
+      echo -e "${YELLOW}Running install_deps.sh ...${RESET}"
+      bash "${SCRIPT_DIR}/install_deps.sh" || true
+    fi
+  fi
+
+  # finished
+  if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
+    figlet -f small "UPDATED" | lolcat -a -d 2
+  elif command -v figlet >/dev/null 2>&1; then
+    figlet -f small "UPDATED"
+  else
+    echo -e "${GREEN}=== UPDATED ===${RESET}"
+  fi
+
+  # offer to restart the launcher (exec new copy)
+  read -r -p $'Restart the launcher now to use the updated script? (Y/n): ' restart_ans
+  restart_ans="${restart_ans:-y}"
+  if [[ "$restart_ans" =~ ^[Yy]$ ]]; then
+    echo -e "${CYAN}Restarting...${RESET}"
+    exec "$SCRIPT_PATH" "$@"
+    # exec will replace current process; if it returns, continue
+  fi
+
+  _wait
+}
+
 # Main loop
 while true; do
   print_menu
-  read -r -p $'Choose an option [1-13]: ' choice
+  read -r -p $'Choose an option [1-14]: ' choice
   case "$choice" in
-    1) NETWORK_SCAN ;;
+    1) NETWORK_SCAN ;;      # keep your existing functions in file
     2) PASSIVE_WIFI ;;
     3) IP_CHANGER ;;
     4) IP_OSINT ;;
@@ -399,7 +486,8 @@ while true; do
     10) THEHARVESTER ;;
     11) GOBUSTER ;;
     12) RECON_NG ;;
-    13) echo -e "${YELLOW}Goodbye${RESET}"; exit 0 ;;
+    13) UPDATE_REPO_AND_TOOLS ;;
+    14) echo -e "${YELLOW}Goodbye${RESET}"; exit 0 ;;
     *) echo -e "${RED}Invalid choice${RESET}"; sleep 1 ;;
   esac
 done
