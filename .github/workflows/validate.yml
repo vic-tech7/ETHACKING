@@ -1,0 +1,29 @@
+name: Validate No Malicious Tools
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  scan_forbidden:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Check for forbidden tool keywords
+      run: |
+        forbidden=("wifite" "zphisher" "aircrack" "ettercap" "hydra" "metasploit" "evil" "phish")
+        issues=0
+        for kw in "${forbidden[@]}"; do
+          if grep -R -i --exclude-dir=.git -n "$kw" . >/dev/null 2>&1; then
+            echo "❌ Forbidden keyword found: $kw"
+            issues=$((issues + 1))
+          fi
+        done
+        if [ "$issues" -gt 0 ]; then
+          echo "::error ::Repository contains forbidden keywords. Please remove them."
+          exit 1
+        fi
