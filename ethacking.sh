@@ -76,9 +76,11 @@ print_menu() {
   printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}     ${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
     "$leftw" "11)" "$rightw" "GOBUSTER" \
     "$leftw" "12)" "$rightw" "RECON_NG"
+  printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}     ${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
+    "$leftw" "13)" "$rightw" "ZPHISHER" \
+    "$leftw" "14)" "$rightw" "UPDATE"
   printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
-    "$leftw" "13)" "$rightw" "UPDATE" \
-    "$leftw" "14)" "$rightw" "EXIT"
+    "$leftw" "15)" "$rightw" "EXIT"
 
   echo
 }
@@ -388,6 +390,21 @@ RECON_NG() {
   _wait
 }
 
+ZPHISHER() {
+  local tool_dir="$TOOLS_DIR/zphisher"
+  
+  # Clone the repository if it doesn't exist
+  git_clone_if_missing "https://github.com/htr-tech/zphisher.git" "$tool_dir"
+  
+  # Change to the tool directory and run it
+  echo -e "${GREEN}Launching Zphisher...${RESET}"
+  cd "$tool_dir"
+  bash zphisher.sh
+  cd "$SCRIPT_DIR"
+  
+  _wait
+}
+
 
 # UPDATE: update repo and tools, optional run installer, offer restart of launcher
 UPDATE_REPO_AND_TOOLS() {
@@ -490,6 +507,7 @@ while true; do
     10) THEHARVESTER ;;
     11) GOBUSTER ;;
     12) RECON_NG ;;
+    13) ZPHISHER ;;
     13) UPDATE_REPO_AND_TOOLS ;;
     14) echo -e "${YELLOW}Goodbye${RESET}"; exit 0 ;;
     *) echo -e "${RED}Invalid choice${RESET}"; sleep 1 ;;
