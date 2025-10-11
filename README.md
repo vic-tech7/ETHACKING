@@ -62,10 +62,8 @@ The toolkit is ideal for:
 ```bash
 sudo ln -sf "$(pwd)/ethacking.sh" /usr/local/bin/ethacking
 ethacking  # Now you can run it from anywhere
-
+```
 ## RUN 
-
-
 ```bash
 git clone https://github.com/vic-tech7/ETHACKING.git
 cd ETHACKING
