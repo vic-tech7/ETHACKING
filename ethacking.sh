@@ -307,6 +307,7 @@ PEGASUS() {
     figlet -f big "PLEASE STAY ETHICAL"
   else
     echo -e "${RED}PLEASE STAY ETHICAL${RESET}"
+    echo "joking, update coming soon"
   fi
   _wait
 }
