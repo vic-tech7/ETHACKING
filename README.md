@@ -1,11 +1,47 @@
-# ETHACKING (Ethical OSINT & Recon Launcher)
+# ETHACKING - Ethical OSINT & Recon Toolkit
 
-**Author:** vic‑tech7  
-**License:** MIT
+![Banner](screenshots/banner.png) <!-- Replace with your screenshot path -->
 
-ETHACKING is a menu-based launcher for educational, ethical reconnaissance and OSINT tools.
-It provides a unified interface to run common tools (nmap, amass, theHarvester, Sherlock, etc.),
-cloning missing tools on demand, showing live results and previews, and returning you to the main menu.
+> **Author:** [vic-tech7](https://github.com/vic-tech7)  
+> **License:** [MIT](LICENSE)  
+> **Purpose:** For ethical penetration testing, red teaming, and reconnaissance training
+
+---
+
+## 🔍 About ETHACKING
+
+**ETHACKING** is a terminal-based toolkit that combines popular recon and OSINT tools into one unified, menu-driven launcher. It helps automate common reconnaissance tasks while maintaining a clean and organized interface.
+
+The toolkit is ideal for:
+
+- Bug bounty hunting
+- Penetration testing
+- OSINT research
+- CTF and red team preparation
+
+| Tool         | Purpose                         |
+| ------------ | ------------------------------- |
+| nmap         | Network scanning                |
+| kismet       | Passive WiFi monitoring         |
+| proxychains  | Anonymity (via Tor)             |
+| PhoneInfoga  | Phone number OSINT              |
+| Sherlock     | Social media username search    |
+| theHarvester | Email, host, domain gathering   |
+| amass        | Subdomain enumeration           |
+| gobuster     | Directory & vhost brute-forcing |
+| recon-ng     | Framework for web recon         |
+| nikto        | Web vulnerability scanning      |
+
+ ETHACKING/
+├── ethacking.sh            # Main launcher script
+├── install_deps.sh         # Optional dependency installer
+├── tools/                  # Cloned tools live here
+├── screenshots/            # Your screenshots (optional)
+├── .github/workflows/      # GitHub Actions config
+├── .gitignore
+├── README.md
+└── LICENSE
+
 
 > ⚠️ **WARNING / ETHICS**  
 > This software is strictly for **legal, authorized security testing**.  
@@ -13,10 +49,20 @@ cloning missing tools on demand, showing live results and previews, and returnin
 > Using tools on unauthorized systems may violate laws and be prosecutable.
 
 ## Quick start
+```bash
+sudo ln -sf "$(pwd)/ethacking.sh" /usr/local/bin/ethacking
+ethacking  # Now you can run it from anywhere
+
 
 ```bash
 git clone https://github.com/vic-tech7/ETHACKING.git
 cd ETHACKING
-chmod +x install_deps.sh ethacking.sh
-sudo ./install_deps.sh        # optional: installs common dependencies
+chmod +x ethacking.sh install_deps.sh
+
+# Optional: install recommended tools
+sudo ./install_deps.sh
+
+# Run ETHACKING
 sudo ./ethacking.sh
+
+
