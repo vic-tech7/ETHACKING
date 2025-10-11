@@ -71,16 +71,17 @@ print_menu() {
     "$leftw" "7)" "$rightw" "SOCIAL_OSINT" \
     "$leftw" "8)" "$rightw" "PEGASUS"
   printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}     ${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
-    "$leftw" "9)" "$rightw" "AMASS" \
-    "$leftw" "10)" "$rightw" "THEHARVESTER"
+    "$leftw" "9)" "$rightw" "BTSTORM" \
+    "$leftw" "10)" "$rightw" "AMASS"
   printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}     ${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
-    "$leftw" "11)" "$rightw" "GOBUSTER" \
-    "$leftw" "12)" "$rightw" "RECON_NG"
+    "$leftw" "11)" "$rightw" "THEHARVESTER" \
+    "$leftw" "12)" "$rightw" "GOBUSTER"
   printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}     ${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
-    "$leftw" "13)" "$rightw" "ZPHISHER" \
-    "$leftw" "14)" "$rightw" "UPDATE"
-  printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
-    "$leftw" "15)" "$rightw" "EXIT"
+    "$leftw" "13)" "$rightw" "RECON_NG" \
+    "$leftw" "14)" "$rightw" "ZPHISHER"
+  printf "${GREEN}%*s${RESET}  ${RED}%-*s${RESET}     ${GREEN}%*s${RESET}  ${RED}%-*s${RESET}\n" \
+    "$leftw" "15)" "$rightw" "UPDATE" \
+    "$leftw" "16)" "$rightw" "EXIT"
 
   echo
 }
@@ -320,6 +321,48 @@ PEGASUS() {
   _wait
 }
 
+BTSTORM() {
+  local tool_dir="$TOOLS_DIR/btstorm"
+  
+  # Clone the repository if it doesn't exist
+  git_clone_if_missing "https://github.com/thakur2309/BTSTORM.git" "$tool_dir"
+  
+  # Change to the tool directory and run it
+  echo -e "${GREEN}Launching BTSTORM...${RESET}"
+  cd "$tool_dir"
+  
+  # Install dependencies if requirements file exists
+  if [ -f "requirements.txt" ]; then
+    echo -e "${CYAN}Installing Python dependencies...${RESET}"
+    pip3 install -r requirements.txt 2>/dev/null || true
+  fi
+  
+  # Try different common entry points
+  if [ -f "btstorm.py" ]; then
+    python3 btstorm.py
+  elif [ -f "main.py" ]; then
+    python3 main.py
+  elif [ -f "btstorm" ]; then
+    # If it's a compiled binary
+    chmod +x btstorm
+    ./btstorm
+  else
+    # If no obvious entry point, try to find executable Python files
+    local python_files=( *.py )
+    if [ -f "${python_files[0]}" ]; then
+      python3 "${python_files[0]}"
+    else
+      echo -e "${YELLOW}No entry point found. Listing directory contents:${RESET}"
+      ls -la
+      echo -e "${YELLOW}Please check the directory and run manually.${RESET}"
+      read -r -p $'Press Enter to continue...'
+    fi
+  fi
+  
+  cd "$SCRIPT_DIR"
+  _wait
+}
+
 AMASS() {
   command -v amass >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y amass >/dev/null 2>&1) || true
   read -r -p $'Domain to enumerate (e.g. example.com): ' domain
@@ -493,7 +536,7 @@ UPDATE_REPO_AND_TOOLS() {
 # Main loop
 while true; do
   print_menu
-  read -r -p $'Choose an option [1-14]: ' choice
+  read -r -p $'Choose an option [1-16]: ' choice
   case "$choice" in
     1) NETWORK_SCAN ;;      # keep your existing functions in file
     2) PASSIVE_WIFI ;;
@@ -503,13 +546,14 @@ while true; do
     6) WEBSITE_SCANNER ;;
     7) SOCIAL_OSINT ;;
     8) PEGASUS ;;
-    9) AMASS ;;
-    10) THEHARVESTER ;;
-    11) GOBUSTER ;;
-    12) RECON_NG ;;
-    13) ZPHISHER ;;
-    13) UPDATE_REPO_AND_TOOLS ;;
-    14) echo -e "${YELLOW}Goodbye${RESET}"; exit 0 ;;
+    9) BTSTORM ;;
+    10) AMASS ;;
+    11) THEHARVESTER ;;
+    12) GOBUSTER ;;
+    13) RECON_NG ;;
+    14) ZPHISHER ;;
+    15) UPDATE_REPO_AND_TOOLS ;;
+    16) echo -e "${YELLOW}Goodbye${RESET}"; exit 0 ;;
     *) echo -e "${RED}Invalid choice${RESET}"; sleep 1 ;;
   esac
 done
