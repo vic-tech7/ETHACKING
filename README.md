@@ -67,11 +67,7 @@ ethacking  # Now you can run it from anywhere
 ```bash
 git clone https://github.com/vic-tech7/ETHACKING.git
 cd ETHACKING
-chmod +x ethacking.sh install_deps.sh
-
-# Optional: install recommended tools
-sudo ./install_deps.sh
-
+chmod +x ethacking.sh 
 # Run ETHACKING
 sudo ./ethacking.sh
 
