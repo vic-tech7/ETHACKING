@@ -52,7 +52,7 @@ The toolkit is ideal for:
 
 └── LICENSE
 
-
+## WARNING
 > ⚠️ **WARNING / ETHICS**  
 > This software is strictly for **legal, authorized security testing**.  
 > Do not use it against systems, networks, or targets without explicit permission.  
@@ -62,6 +62,8 @@ The toolkit is ideal for:
 ```bash
 sudo ln -sf "$(pwd)/ethacking.sh" /usr/local/bin/ethacking
 ethacking  # Now you can run it from anywhere
+
+## RUN 
 
 
 ```bash
