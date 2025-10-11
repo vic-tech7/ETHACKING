@@ -15,7 +15,7 @@ cloning missing tools on demand, showing live results and previews, and returnin
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/ETHACKING.git
+git clone https://github.com/vic-tech7/ETHACKING.git
 cd ETHACKING
 chmod +x install_deps.sh ethacking.sh
 sudo ./install_deps.sh        # optional: installs common dependencies
