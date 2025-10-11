@@ -4,6 +4,10 @@
 # Auto-elevates to root; clones tools into ./tools/ and runs them immediately.
 
 set -euo pipefail
+# determine script directory (works with symlink)
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+
 IFS=$'\n\t'
 
 # Auto-elevate to root if not already
