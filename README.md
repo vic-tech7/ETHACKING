@@ -39,12 +39,17 @@ The toolkit is ideal for:
 
  ETHACKING/
 ├── ethacking.sh            # Main launcher script
+
 ├── install_deps.sh         # Optional dependency installer
-├── tools/                  # Cloned tools live here
+
 ├── screenshots/            # Your screenshots (optional)
-├── .github/workflows/      # GitHub Actions config
+
+├── .github/workflows/    
+
 ├── .gitignore
+
 ├── README.md
+
 └── LICENSE
 
 
