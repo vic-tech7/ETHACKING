@@ -553,7 +553,7 @@ while true; do
     13) RECON_NG ;;
     14) ZPHISHER ;;
     15) UPDATE_REPO_AND_TOOLS ;;
-    16) echo -e "${YELLOW}Goodbye${RESET}"; exit 0 ;;
+    16) echo -e "${YELLOW}Thanks for using ETHACKING. Goodbye :)${RESET}"; exit 0 ;;
     *) echo -e "${RED}Invalid choice${RESET}"; sleep 1 ;;
   esac
 done
