@@ -348,24 +348,146 @@ WEBSITE_SCANNER() {
 SOCIAL_OSINT() {
   local repo="https://github.com/sherlock-project/sherlock.git"
   local dest="$TOOLS_DIR/Sherlock"
-  git_clone_if_missing "$repo" "$dest"
-  read -r -p $'Username to enumerate: ' user
 
-  if [ -f "$dest/sherlock.py" ]; then
-    cmd="python3 \"$dest/sherlock.py\" \"$user\""
-    run_and_capture "$cmd" "sherlock_${user}"
-  elif [ -f "$dest/sherlock/sherlock.py" ]; then
-    cmd="python3 \"$dest/sherlock/sherlock.py\" \"$user\""
-    run_and_capture "$cmd" "sherlock_${user}"
-  elif command -v sherlock >/dev/null 2>&1; then
-    cmd="sherlock \"$user\""
-    run_and_capture "$cmd" "sherlock_${user}"
-  else
-    echo -e "${YELLOW}Cannot find Sherlock executable in $dest. Listing contents:${RESET}"
-    ls -la "$dest"
+  # ensure tools dir exists
+  mkdir -p "$TOOLS_DIR"
+
+  git_clone_if_missing "$repo" "$dest"
+  echo -e "${GREEN}Sherlock directory: $dest${RESET}"
+
+  # pushd so we return to the menu directory afterwards
+  if ! pushd "$dest" >/dev/null 2>&1; then
+    echo -e "${YELLOW}Failed to cd into $dest${RESET}"
+    _wait
+    return
   fi
+
+  # avoid exiting the whole script if something fails here
+  set +e
+
+  # Ensure python3 and venv support
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo -e "${YELLOW}python3 not found. Installing...${RESET}"
+    apt-get update -y >/dev/null 2>&1 || true
+    apt-get install -y python3 python3-venv python3-pip >/dev/null 2>&1 || true
+  fi
+
+  # Create a local venv if missing
+  if [ ! -d ".venv" ]; then
+    echo -e "${CYAN}Creating virtualenv at $dest/.venv...${RESET}"
+    python3 -m venv .venv >/dev/null 2>&1 || { echo -e "${YELLOW}Failed to create venv; trying with apt-installed python3-venv...${RESET}"; python3 -m venv .venv >/dev/null 2>&1 || true; }
+  fi
+
+  VENV_PY="./.venv/bin/python"
+  VENV_PIP="./.venv/bin/pip"
+  VENV_CLI="./.venv/bin/sherlock"
+
+  # Ensure pip inside venv is new
+  if [ -x "$VENV_PIP" ]; then
+    echo -e "${CYAN}Upgrading pip in venv...${RESET}"
+    "$VENV_PIP" install --upgrade pip setuptools wheel >/dev/null 2>&1 || true
+  fi
+
+  # If CLI not present, try to install package into venv
+  if [ ! -x "$VENV_CLI" ]; then
+    echo -e "${CYAN}Installing Sherlock into the virtualenv (editable)...${RESET}"
+    # prefer editable install if pyproject exists; fall back to pip install .
+    if [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+      "$VENV_PIP" install -e . >/dev/null 2>&1 || "$VENV_PIP" install . >/dev/null 2>&1 || true
+    else
+      # try installing requirements if present
+      if [ -f "requirements.txt" ]; then
+        "$VENV_PIP" install -r requirements.txt >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
+
+  # Re-check for cli
+  if [ -x "$VENV_CLI" ]; then
+    RUNNER="$VENV_CLI"
+  else
+    # fallback: try running module with venv python (some installs provide module name)
+    if [ -x "$VENV_PY" ]; then
+      # try known module names
+      RUNNER="$VENV_PY -m sherlock"
+      # We'll test it below by attempting a --version run
+    else
+      RUNNER=""
+    fi
+  fi
+
+  # test runner by trying to get version (do not fail hard)
+  OK=0
+  if [ -n "$RUNNER" ]; then
+    # try to run --version; suppress clutter but detect exit status
+    if bash -c "$RUNNER --version" >/dev/null 2>&1; then
+      OK=1
+    elif bash -c "$RUNNER -V" >/dev/null 2>&1; then
+      OK=1
+    else
+      OK=0
+    fi
+  fi
+
+  # if runner is not OK, try some alternatives
+  if [ "$OK" -ne 1 ]; then
+    # try system 'sherlock' if present
+    if command -v sherlock >/dev/null 2>&1; then
+      RUNNER="$(command -v sherlock)"
+      OK=1
+    else
+      # try running python module directly (system python) as last resort
+      if command -v python3 >/dev/null 2>&1; then
+        if python3 -c "import sherlock" >/dev/null 2>&1; then
+          RUNNER="python3 -m sherlock"
+          OK=1
+        elif python3 -c "import sherlock_project" >/dev/null 2>&1; then
+          RUNNER="python3 -m sherlock_project"
+          OK=1
+        fi
+      fi
+    fi
+  fi
+
+  # If still not OK, print helpful debug and contents
+  if [ "$OK" -ne 1 ] || [ -z "$RUNNER" ]; then
+    echo -e "${YELLOW}Could not prepare a runnable Sherlock CLI automatically.${RESET}"
+    echo -e "${YELLOW}Contents of $dest:${RESET}"
+    ls -la
+    echo
+    echo -e "${YELLOW}Hints:${RESET}"
+    echo -e "${YELLOW}  1) Ensure Python3 and python3-venv are installed.${RESET}"
+    echo -e "${YELLOW}  2) From $dest, try: python3 -m venv .venv; ./.venv/bin/pip install -e .; ./.venv/bin/sherlock USERNAME${RESET}"
+    echo -e "${YELLOW}  3) Or install globally: pip3 install sherlock-project && sherlock USERNAME${RESET}"
+    set -e
+    popd >/dev/null 2>&1 || true
+    _wait
+    return
+  fi
+
+  # Ask for username and run using run_and_capture helper
+  read -r -p $'Username to enumerate: ' target_user
+  # Build a safe outfile prefix
+  safe="$(echo "$target_user" | sed 's/[^a-zA-Z0-9._-]/_/g')"
+  # Build command string that run_and_capture will execute in a subshell; ensure proper quoting
+  # Use the absolute path for runner if it's an executable path; otherwise it's a command string (like "python -m sherlock")
+  if [[ "$RUNNER" == /* ]] || [[ "$RUNNER" == ./* ]]; then
+    cmd="\"$PWD/${RUNNER#./}\" \"$target_user\""
+  else
+    # runner may be like: python3 -m sherlock
+    cmd="$RUNNER \"$target_user\""
+  fi
+
+  run_and_capture "$cmd" "sherlock_${safe}"
+
+  # restore set -e behavior
+  set -e
+
+  # return to original dir & menu
+  popd >/dev/null 2>&1 || true
   _wait
 }
+
 
 PEGASUS() {
   if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
