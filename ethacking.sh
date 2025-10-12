@@ -492,11 +492,13 @@ SOCIAL_OSINT() {
 PEGASUS() {
   if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
     figlet -f big "PLEASE STAY ETHICAL" | lolcat -a -d 2
+    figlet -f small "just a litle prank, upgrade coming soon" | lolcat -a -d 2
   elif command -v figlet >/dev/null 2>&1; then
     figlet -f big "PLEASE STAY ETHICAL"
+    figlet -f small "just a litle prank, upgrade coming soon"
   else
     echo -e "${RED}PLEASE STAY ETHICAL${RESET}"
-    echo "joking, update coming soon"
+    echo -e "${RED}just a litle prank, upgrade coming soon${RESET}"
   fi
   _wait
 }
