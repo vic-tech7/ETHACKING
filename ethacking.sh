@@ -227,46 +227,104 @@ IP_OSINT() {
 PHONE_OSINT() {
   local repo="https://github.com/sundowndev/PhoneInfoga.git"
   local dest="$TOOLS_DIR/PhoneInfoga"
+
+  # Ensure tools dir exists
+  mkdir -p "$TOOLS_DIR"
+
+  # Clone if missing
   git_clone_if_missing "$repo" "$dest"
   echo -e "${GREEN}PhoneInfoga directory: $dest${RESET}"
 
-  # Build if it's Go source and binary missing
-  if [ ! -f "$dest/phoneinfoga" ]; then
-    echo -e "${YELLOW}Attempting to build PhoneInfoga (if source present)...${RESET}"
+  # use pushd/popd so we always return to the original dir/menu
+  if ! pushd "$dest" >/dev/null 2>&1; then
+    echo -e "${YELLOW}Failed to cd into $dest${RESET}"
+    _wait
+    return
+  fi
+
+  # Keep script robust: disable 'set -e' inside this function so build/runtime failures don't exit the whole script
+  set +e
+
+  # helper to locate a runnable binary
+  find_binary() {
+    if [ -x "./phoneinfoga" ]; then
+      echo "./phoneinfoga"
+      return 0
+    fi
+    if [ -x "./bin/phoneinfoga" ]; then
+      echo "./bin/phoneinfoga"
+      return 0
+    fi
+    if command -v phoneinfoga >/dev/null 2>&1; then
+      command -v phoneinfoga
+      return 0
+    fi
+    return 1
+  }
+
+  BIN=""
+  BIN=$(find_binary) || BIN=""
+
+  # If no binary, try installer (fetches prebuilt binary into ./bin)
+  if [ -z "$BIN" ]; then
+    echo -e "${YELLOW}No phoneinfoga binary found locally. Attempting to fetch prebuilt binary via installer script...${RESET}"
+    curl -sSL https://raw.githubusercontent.com/sundowndev/PhoneInfoga/master/support/scripts/install | bash || true
+    BIN=$(find_binary) || BIN=""
+  fi
+
+  # If still no binary, attempt to build (frontend -> go build)
+  if [ -z "$BIN" ]; then
+    echo -e "${YELLOW}Attempting local build (this may require npm/node and golang).${RESET}"
+
+    # ensure go
     if ! command -v go >/dev/null 2>&1; then
-      echo -e "${YELLOW}Go not found. Installing golang...${RESET}"
       apt-get update -y >/dev/null 2>&1 || true
       apt-get install -y golang >/dev/null 2>&1 || true
     fi
-    if [ -f "$dest/main.go" ]; then
-      (cd "$dest" && go build -o phoneinfoga main.go) || true
-    else
-      if [ -d "$dest/cmd" ]; then
-        (cd "$dest/cmd" && for d in *; do if [ -f "$d/main.go" ]; then (cd "$d" && go build -o ../../phoneinfoga main.go) && break; fi; done) || true
+
+    # build web client if present
+    if [ -d "web/client" ]; then
+      if ! command -v npm >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1 || true
+        apt-get install -y nodejs npm >/dev/null 2>&1 || true
       fi
+      (cd web/client && npm install --unsafe-perm >/dev/null 2>&1 || true && npm run build >/dev/null 2>&1 || true)
     fi
+
+    # try go build
+    if [ -f "main.go" ]; then
+      go build -o phoneinfoga main.go || true
+    elif [ -d "cmd" ]; then
+      (cd cmd && for d in *; do if [ -f "$d/main.go" ]; then (cd "$d" && go build -o ../../phoneinfoga main.go) && break; fi; done) || true
+    fi
+
+    BIN=$(find_binary) || BIN=""
   fi
 
-  # detect entrypoints
-  if [ -f "$dest/phoneinfoga" ]; then
+  # Final run or helpful debug
+  if [ -n "$BIN" ] && [ -x "$BIN" ]; then
+    # ask number
     read -r -p $'Phone number (with country code, e.g. +123...): ' number
-    cmd="\"$dest/phoneinfoga\" scan -n \"$number\""
-    run_and_capture "$cmd" "phoneinfoga_${number//[^a-zA-Z0-9+]/_}"
-  elif [ -f "$dest/phoneinfoga.py" ]; then
-    read -r -p $'Phone number (with country code, e.g. +123...): ' number
-    cmd="python3 \"$dest/phoneinfoga.py\" scan -n \"$number\""
-    run_and_capture "$cmd" "phoneinfoga_${number//[^a-zA-Z0-9+]/_}"
-  elif command -v phoneinfoga >/dev/null 2>&1; then
-    read -r -p $'Phone number (with country code, e.g. +123...): ' number
-    cmd="phoneinfoga scan -n \"$number\""
+    # run the tool and capture/preview using your run_and_capture helper
+    cmd="\"$PWD/${BIN#./}\" scan -n \"$number\""
+    # ensure the command runs from repo root - run_and_capture runs a subshell, so it will not depend on pushd state
     run_and_capture "$cmd" "phoneinfoga_${number//[^a-zA-Z0-9+]/_}"
   else
-    echo -e "${YELLOW}Could not run PhoneInfoga automatically. Listing contents of $dest:${RESET}"
-    ls -la "$dest"
-    echo -e "${YELLOW}If PhoneInfoga requires a manual build, cd $dest and follow its README.${RESET}"
+    echo -e "${YELLOW}Could not obtain a runnable PhoneInfoga binary.${RESET}"
+    echo -e "${YELLOW}Contents of $dest:${RESET}"
+    ls -la
+    echo
+    echo -e "${YELLOW}Try: cd $dest; follow README. Recommended: run the project's installer script to fetch a prebuilt binary or build web client (web/client) then 'go build'.${RESET}"
   fi
+
+  # restore -e behavior for the rest of the script
+  set -e
+
+  # return to previous directory (menu will continue)
+  popd >/dev/null 2>&1 || true
   _wait
 }
+
 
 WEBSITE_SCANNER() {
   command -v nikto >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y nikto >/dev/null 2>&1) || true
