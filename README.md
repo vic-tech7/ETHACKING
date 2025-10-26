@@ -61,7 +61,7 @@ The toolkit is ideal for:
 ## Quick start
 ```bash
 sudo ln -sf "$(pwd)/ethacking.sh" /usr/local/bin/ethacking
-ethacking  # Now you can run it from anywhere
+ethacking  
 ```
 ## RUN 
 ```bash
