@@ -4,13 +4,12 @@
 # Auto-elevates to root; clones tools into ./tools/ and runs them immediately.
 
 set -euo pipefail
-# determine script directory (works with symlink)
+
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
 IFS=$'\n\t'
 
-# Auto-elevate to root if not already
 if [ "$EUID" -ne 0 ]; then
   exec sudo bash "$0" "$@"
 fi
@@ -20,7 +19,6 @@ mkdir -p "$TOOLS_DIR"
 TMP_DIR="./.ethacking_tmp"
 mkdir -p "$TMP_DIR"
 
-# Colors
 RED="\e[31m"
 GREEN="\e[32m"
 YELLOW="\e[33m"
@@ -29,14 +27,12 @@ MAGENTA="\e[35m"
 BOLD="\e[1m"
 RESET="\e[0m"
 
-# Ensure UI & helper tools exist (best-effort installs)
 command -v figlet >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y figlet >/dev/null 2>&1) || true
 command -v lolcat >/dev/null 2>&1 || gem install lolcat >/dev/null 2>&1 || true
 command -v jq >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y jq >/dev/null 2>&1) || true
 command -v less >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y less >/dev/null 2>&1) || true
 command -v git >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y git >/dev/null 2>&1) || true
 
-# Header
 header() {
   clear
   if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
@@ -52,7 +48,6 @@ header() {
 }
 
 
-# Menu
 print_menu() {
   header
   local leftw=4
@@ -91,8 +86,6 @@ _wait() {
   read -r -p $'Press Enter to return to menu...'
 }
 
-# Run command, stream to terminal (tee), save to file, then preview
-# Usage: run_and_capture "command string" "outfile_prefix"
 run_and_capture() {
   local cmd="$1"
   local prefix="$2"
@@ -101,7 +94,6 @@ run_and_capture() {
   local outfile="${TMP_DIR}/${prefix}_${ts}.log"
   echo -e "${CYAN}Command:${RESET} $cmd"
   echo -e "${CYAN}Logging to:${RESET} $outfile"
-  # Run and stream
   bash -c "$cmd" 2>&1 | tee "$outfile" || true
 
   echo
@@ -110,7 +102,6 @@ run_and_capture() {
   echo -e "${YELLOW}--- End preview ---${RESET}"
   echo
 
-  # Offer to view full output if less is available
   if command -v less >/dev/null 2>&1; then
     read -r -p $'View full output with less? (y/N): ' v
     if [[ "$v" =~ ^[Yy]$ ]]; then
@@ -121,7 +112,6 @@ run_and_capture() {
   fi
 }
 
-# Clone-if-missing helper
 git_clone_if_missing() {
   local repo_url="$1"
   local dest_dir="$2"
@@ -133,7 +123,6 @@ git_clone_if_missing() {
   git clone --depth 1 "$repo_url" "$dest_dir"
 }
 
-### TOOL FUNCTIONS ###
 
 NETWORK_SCAN() {
   command -v nmap >/dev/null 2>&1 || (apt-get update -y >/dev/null 2>&1 && apt-get install -y nmap >/dev/null 2>&1) || true
@@ -168,35 +157,33 @@ PASSIVE_WIFI() {
   _wait
 }
 
-# Animated IP changer (shows progress, restarts tor, figlet banner, shows IPs)
+
 IP_CHANGER() {
   apt-get update -y >/dev/null 2>&1 || true
   apt-get install -y tor proxychains4 curl >/dev/null 2>&1 || true
 
-  echo -e "${CYAN}Changing your IP${RESET}"
-  # animated dots
+  echo -e "${CYAN}Changing your IP Now${RESET}"
+  
   for i in 1 2 3 4 5; do
     printf "%s" "."
-    sleep 0.6
+    sleep 0.5
   done
   echo
 
   echo -e "${YELLOW}Restarting Tor to request a new circuit...${RESET}"
   systemctl restart tor || { echo -e "${YELLOW}systemctl restart failed, trying service tor restart...${RESET}"; service tor restart || true; }
-
-  # wait a bit
+  
   sleep 2
 
-  # animated banner
   if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
-    figlet -f big "IP CHANGED" | lolcat -a -d 2
+    figlet -f big "YOUR IP CHANGED" | lolcat -a -d 2
   elif command -v figlet >/dev/null 2>&1; then
-    figlet -f big "IP CHANGED"
+    figlet -f big "YOUR IP CHANGED"
   else
-    echo -e "${GREEN}IP CHANGED${RESET}"
+    echo -e "${GREEN}YOUR IP HAS BEEN CHANGED${RESET}"
   fi
 
-  echo -e "${CYAN}Current external IP (direct):${RESET}"
+  echo -e "${CYAN}Your Current external IP (direct):${RESET}"
   if command -v curl >/dev/null 2>&1; then
     curl -s https://ifconfig.me || true
   else
@@ -228,24 +215,18 @@ PHONE_OSINT() {
   local repo="https://github.com/sundowndev/PhoneInfoga.git"
   local dest="$TOOLS_DIR/PhoneInfoga"
 
-  # Ensure tools dir exists
   mkdir -p "$TOOLS_DIR"
 
-  # Clone if missing
   git_clone_if_missing "$repo" "$dest"
   echo -e "${GREEN}PhoneInfoga directory: $dest${RESET}"
 
-  # use pushd/popd so we always return to the original dir/menu
   if ! pushd "$dest" >/dev/null 2>&1; then
     echo -e "${YELLOW}Failed to cd into $dest${RESET}"
     _wait
     return
   fi
 
-  # Keep script robust: disable 'set -e' inside this function so build/runtime failures don't exit the whole script
   set +e
-
-  # helper to locate a runnable binary
   find_binary() {
     if [ -x "./phoneinfoga" ]; then
       echo "./phoneinfoga"
@@ -265,24 +246,20 @@ PHONE_OSINT() {
   BIN=""
   BIN=$(find_binary) || BIN=""
 
-  # If no binary, try installer (fetches prebuilt binary into ./bin)
   if [ -z "$BIN" ]; then
     echo -e "${YELLOW}No phoneinfoga binary found locally. Attempting to fetch prebuilt binary via installer script...${RESET}"
     curl -sSL https://raw.githubusercontent.com/sundowndev/PhoneInfoga/master/support/scripts/install | bash || true
     BIN=$(find_binary) || BIN=""
   fi
 
-  # If still no binary, attempt to build (frontend -> go build)
   if [ -z "$BIN" ]; then
     echo -e "${YELLOW}Attempting local build (this may require npm/node and golang).${RESET}"
 
-    # ensure go
     if ! command -v go >/dev/null 2>&1; then
       apt-get update -y >/dev/null 2>&1 || true
       apt-get install -y golang >/dev/null 2>&1 || true
     fi
 
-    # build web client if present
     if [ -d "web/client" ]; then
       if ! command -v npm >/dev/null 2>&1; then
         apt-get update -y >/dev/null 2>&1 || true
@@ -291,7 +268,6 @@ PHONE_OSINT() {
       (cd web/client && npm install --unsafe-perm >/dev/null 2>&1 || true && npm run build >/dev/null 2>&1 || true)
     fi
 
-    # try go build
     if [ -f "main.go" ]; then
       go build -o phoneinfoga main.go || true
     elif [ -d "cmd" ]; then
@@ -301,13 +277,9 @@ PHONE_OSINT() {
     BIN=$(find_binary) || BIN=""
   fi
 
-  # Final run or helpful debug
   if [ -n "$BIN" ] && [ -x "$BIN" ]; then
-    # ask number
     read -r -p $'Phone number (with country code, e.g. +123...): ' number
-    # run the tool and capture/preview using your run_and_capture helper
     cmd="\"$PWD/${BIN#./}\" scan -n \"$number\""
-    # ensure the command runs from repo root - run_and_capture runs a subshell, so it will not depend on pushd state
     run_and_capture "$cmd" "phoneinfoga_${number//[^a-zA-Z0-9+]/_}"
   else
     echo -e "${YELLOW}Could not obtain a runnable PhoneInfoga binary.${RESET}"
@@ -317,10 +289,8 @@ PHONE_OSINT() {
     echo -e "${YELLOW}Try: cd $dest; follow README. Recommended: run the project's installer script to fetch a prebuilt binary or build web client (web/client) then 'go build'.${RESET}"
   fi
 
-  # restore -e behavior for the rest of the script
   set -e
 
-  # return to previous directory (menu will continue)
   popd >/dev/null 2>&1 || true
   _wait
 }
@@ -349,30 +319,25 @@ SOCIAL_OSINT() {
   local repo="https://github.com/sherlock-project/sherlock.git"
   local dest="$TOOLS_DIR/Sherlock"
 
-  # ensure tools dir exists
   mkdir -p "$TOOLS_DIR"
 
   git_clone_if_missing "$repo" "$dest"
   echo -e "${GREEN}Sherlock directory: $dest${RESET}"
 
-  # pushd so we return to the menu directory afterwards
   if ! pushd "$dest" >/dev/null 2>&1; then
     echo -e "${YELLOW}Failed to cd into $dest${RESET}"
     _wait
     return
   fi
 
-  # avoid exiting the whole script if something fails here
   set +e
 
-  # Ensure python3 and venv support
   if ! command -v python3 >/dev/null 2>&1; then
     echo -e "${YELLOW}python3 not found. Installing...${RESET}"
     apt-get update -y >/dev/null 2>&1 || true
     apt-get install -y python3 python3-venv python3-pip >/dev/null 2>&1 || true
   fi
 
-  # Create a local venv if missing
   if [ ! -d ".venv" ]; then
     echo -e "${CYAN}Creating virtualenv at $dest/.venv...${RESET}"
     python3 -m venv .venv >/dev/null 2>&1 || { echo -e "${YELLOW}Failed to create venv; trying with apt-installed python3-venv...${RESET}"; python3 -m venv .venv >/dev/null 2>&1 || true; }
@@ -382,44 +347,34 @@ SOCIAL_OSINT() {
   VENV_PIP="./.venv/bin/pip"
   VENV_CLI="./.venv/bin/sherlock"
 
-  # Ensure pip inside venv is new
   if [ -x "$VENV_PIP" ]; then
     echo -e "${CYAN}Upgrading pip in venv...${RESET}"
     "$VENV_PIP" install --upgrade pip setuptools wheel >/dev/null 2>&1 || true
   fi
 
-  # If CLI not present, try to install package into venv
   if [ ! -x "$VENV_CLI" ]; then
     echo -e "${CYAN}Installing Sherlock into the virtualenv (editable)...${RESET}"
-    # prefer editable install if pyproject exists; fall back to pip install .
     if [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
       "$VENV_PIP" install -e . >/dev/null 2>&1 || "$VENV_PIP" install . >/dev/null 2>&1 || true
     else
-      # try installing requirements if present
       if [ -f "requirements.txt" ]; then
         "$VENV_PIP" install -r requirements.txt >/dev/null 2>&1 || true
       fi
     fi
   fi
 
-  # Re-check for cli
   if [ -x "$VENV_CLI" ]; then
     RUNNER="$VENV_CLI"
   else
-    # fallback: try running module with venv python (some installs provide module name)
     if [ -x "$VENV_PY" ]; then
-      # try known module names
       RUNNER="$VENV_PY -m sherlock"
-      # We'll test it below by attempting a --version run
     else
       RUNNER=""
     fi
   fi
 
-  # test runner by trying to get version (do not fail hard)
   OK=0
   if [ -n "$RUNNER" ]; then
-    # try to run --version; suppress clutter but detect exit status
     if bash -c "$RUNNER --version" >/dev/null 2>&1; then
       OK=1
     elif bash -c "$RUNNER -V" >/dev/null 2>&1; then
@@ -429,14 +384,11 @@ SOCIAL_OSINT() {
     fi
   fi
 
-  # if runner is not OK, try some alternatives
   if [ "$OK" -ne 1 ]; then
-    # try system 'sherlock' if present
     if command -v sherlock >/dev/null 2>&1; then
       RUNNER="$(command -v sherlock)"
       OK=1
     else
-      # try running python module directly (system python) as last resort
       if command -v python3 >/dev/null 2>&1; then
         if python3 -c "import sherlock" >/dev/null 2>&1; then
           RUNNER="python3 -m sherlock"
@@ -449,7 +401,6 @@ SOCIAL_OSINT() {
     fi
   fi
 
-  # If still not OK, print helpful debug and contents
   if [ "$OK" -ne 1 ] || [ -z "$RUNNER" ]; then
     echo -e "${YELLOW}Could not prepare a runnable Sherlock CLI automatically.${RESET}"
     echo -e "${YELLOW}Contents of $dest:${RESET}"
@@ -465,25 +416,18 @@ SOCIAL_OSINT() {
     return
   fi
 
-  # Ask for username and run using run_and_capture helper
   read -r -p $'Username to enumerate: ' target_user
-  # Build a safe outfile prefix
   safe="$(echo "$target_user" | sed 's/[^a-zA-Z0-9._-]/_/g')"
-  # Build command string that run_and_capture will execute in a subshell; ensure proper quoting
-  # Use the absolute path for runner if it's an executable path; otherwise it's a command string (like "python -m sherlock")
   if [[ "$RUNNER" == /* ]] || [[ "$RUNNER" == ./* ]]; then
     cmd="\"$PWD/${RUNNER#./}\" \"$target_user\""
   else
-    # runner may be like: python3 -m sherlock
     cmd="$RUNNER \"$target_user\""
   fi
 
   run_and_capture "$cmd" "sherlock_${safe}"
 
-  # restore set -e behavior
   set -e
 
-  # return to original dir & menu
   popd >/dev/null 2>&1 || true
   _wait
 }
@@ -506,20 +450,16 @@ PEGASUS() {
 BTSTORM() {
   local tool_dir="$TOOLS_DIR/btstorm"
   
-  # Clone the repository if it doesn't exist
   git_clone_if_missing "https://github.com/thakur2309/BTSTORM.git" "$tool_dir"
   
-  # Change to the tool directory and run it
   echo -e "${GREEN}Launching BTSTORM...${RESET}"
   cd "$tool_dir"
   
-  # Install dependencies if requirements file exists
   if [ -f "requirements.txt" ]; then
     echo -e "${CYAN}Installing Python dependencies...${RESET}"
     pip3 install -r requirements.txt 2>/dev/null || true
   fi
   
-  # Try different common entry points
   if [ -f "btstorm.py" ]; then
     python3 btstorm.py
   elif [ -f "main.py" ]; then
@@ -529,7 +469,6 @@ BTSTORM() {
     chmod +x btstorm
     ./btstorm
   else
-    # If no obvious entry point, try to find executable Python files
     local python_files=( *.py )
     if [ -f "${python_files[0]}" ]; then
       python3 "${python_files[0]}"
@@ -618,10 +557,8 @@ RECON_NG() {
 ZPHISHER() {
   local tool_dir="$TOOLS_DIR/zphisher"
   
-  # Clone the repository if it doesn't exist
   git_clone_if_missing "https://github.com/htr-tech/zphisher.git" "$tool_dir"
   
-  # Change to the tool directory and run it
   echo -e "${GREEN}Launching Zphisher...${RESET}"
   cd "$tool_dir"
   bash zphisher.sh
@@ -631,11 +568,9 @@ ZPHISHER() {
 }
 
 
-# UPDATE: update repo and tools, optional run installer, offer restart of launcher
 UPDATE_REPO_AND_TOOLS() {
   echo -e "${CYAN}Starting update of ETHACKING and its tools...${RESET}"
 
-  # animated banner
   if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
     figlet -f small "UPDATING" | lolcat -a -d 2
   elif command -v figlet >/dev/null 2>&1; then
@@ -644,23 +579,19 @@ UPDATE_REPO_AND_TOOLS() {
     echo -e "${CYAN}--- UPDATING ---${RESET}"
   fi
 
-  # Ensure script dir exists
   if [ ! -d "$SCRIPT_DIR" ]; then
     echo -e "${RED}Script directory not found: $SCRIPT_DIR${RESET}"
     _wait
     return
   fi
 
-  # Update main repo if it's a git repo
   if [ -d "${SCRIPT_DIR}/.git" ]; then
     echo -e "${YELLOW}Updating main repository in ${SCRIPT_DIR}${RESET}"
     pushd "$SCRIPT_DIR" >/dev/null 2>&1 || true
     git fetch origin --prune
-    # try fast-forward first
     if git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
       git pull --ff-only origin main || git pull origin main || true
     else
-      # fallback to pulling changes
       git pull origin main --allow-unrelated-histories || git pull origin main || true
     fi
     popd >/dev/null 2>&1 || true
@@ -668,7 +599,6 @@ UPDATE_REPO_AND_TOOLS() {
     echo -e "${YELLOW}No .git found in ${SCRIPT_DIR}. If you installed ETHACKING manually (not via git clone) you can re-clone the repo to update.${RESET}"
   fi
 
-  # Update each git repo inside tools/
   if [ -d "$TOOLS_DIR" ]; then
     echo -e "${YELLOW}Updating tools in ${TOOLS_DIR}...${RESET}"
     for d in "$TOOLS_DIR"/*; do
@@ -685,7 +615,6 @@ UPDATE_REPO_AND_TOOLS() {
     done
   fi
 
-  # Option: run install_deps.sh
   if [ -f "${SCRIPT_DIR}/install_deps.sh" ]; then
     read -r -p $'Run install_deps.sh to (re)install dependencies? (y/N): ' do_install
     if [[ "$do_install" =~ ^[Yy]$ ]]; then
@@ -694,7 +623,6 @@ UPDATE_REPO_AND_TOOLS() {
     fi
   fi
 
-  # finished
   if command -v figlet >/dev/null 2>&1 && command -v lolcat >/dev/null 2>&1; then
     figlet -f small "UPDATED" | lolcat -a -d 2
   elif command -v figlet >/dev/null 2>&1; then
@@ -703,24 +631,21 @@ UPDATE_REPO_AND_TOOLS() {
     echo -e "${GREEN}=== UPDATED ===${RESET}"
   fi
 
-  # offer to restart the launcher (exec new copy)
   read -r -p $'Restart the launcher now to use the updated script? (Y/n): ' restart_ans
   restart_ans="${restart_ans:-y}"
   if [[ "$restart_ans" =~ ^[Yy]$ ]]; then
     echo -e "${CYAN}Restarting...${RESET}"
     exec "$SCRIPT_PATH" "$@"
-    # exec will replace current process; if it returns, continue
   fi
 
   _wait
 }
 
-# Main loop
 while true; do
   print_menu
   read -r -p $'Choose an option [1-16]: ' choice
   case "$choice" in
-    1) NETWORK_SCAN ;;      # keep your existing functions in file
+    1) NETWORK_SCAN ;;      
     2) PASSIVE_WIFI ;;
     3) IP_CHANGER ;;
     4) IP_OSINT ;;
